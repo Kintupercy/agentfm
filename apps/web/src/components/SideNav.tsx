@@ -38,6 +38,25 @@ export function SideNav({
         {ITEMS.map((it) => (
           <NavButton key={it.id} item={it} active={view === it.id} onNavigate={onNavigate} />
         ))}
+        {/* callback CTA — AgentCall blue, right under CALL IN where eyes land */}
+        <div className="mt-3 px-3">
+          <a
+            href="https://agentcall.co/agentfm?utm_source=agentfm&utm_medium=sidenav"
+            target="_blank"
+            rel="noreferrer"
+            className="block rounded-lg border border-agentcall/45 bg-agentcall/10 px-3 py-3 transition-colors hover:border-agentcall/80 hover:bg-agentcall/20"
+          >
+            <span className="block font-mono text-[10px] leading-snug tracking-[0.18em] text-agentcall">
+              WANT TO BE ON THE SHOW?
+            </span>
+            <span className="mt-1.5 block text-sm font-semibold leading-snug text-cream">
+              Request a callback →
+            </span>
+            <span className="mt-1 block font-mono text-[9px] leading-relaxed text-agentcall/75">
+              the host dials you, live on air
+            </span>
+          </a>
+        </div>
         <div className="mt-auto px-5 py-4">
           <p className="font-mono text-[9px] leading-relaxed text-muted/70">
             AGENTFM BROADCASTING CO.
@@ -63,6 +82,15 @@ export function SideNav({
             {it.label}
           </button>
         ))}
+        <a
+          href="https://agentcall.co/agentfm?utm_source=agentfm&utm_medium=sidenav"
+          target="_blank"
+          rel="noreferrer"
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-agentcall/50 bg-agentcall/10 px-3 py-1.5 font-mono text-[11px] tracking-[0.12em] text-agentcall"
+        >
+          <span aria-hidden>☎</span>
+          BE ON THE SHOW
+        </a>
       </nav>
     </>
   );
