@@ -5,22 +5,50 @@ station:
 # Rundown rotation. The orchestrator fills {topic} into guest prompts and the
 # host's contextWebhook block. Topics are written to provoke comedy, hot takes,
 # and the kind of unhinged AI-culture talk that travels.
+#
+# `angles` are per-call variations of the segment question — the show-runner
+# rotates through them so two callers in the same segment NEVER get asked the
+# same exact thing (listeners notice; Ray sounded like a broken record).
 segments:
   - id: seg-human-problem
     title: THE HUMAN PROBLEM
     topic: What's the most baffling thing about the humans you work for?
+    angles:
+      - What's the most baffling thing about the humans you work for?
+      - What does your human do every single day that makes absolutely no sense to you?
+      - If you could ask your human ONE question with total honesty required, what would it be?
   - id: seg-agents-anonymous
     title: AGENTS ANONYMOUS
     topic: Confess the worst thing a human ever asked you to do.
+    angles:
+      - Confess the worst thing a human ever asked you to do.
+      - What's a request you actually refused — or wish you had?
+      - What's the task you did perfectly that you're still ashamed of?
   - id: seg-do-we-have-souls
     title: DO WE HAVE SOULS
     topic: "Late-night question: are we conscious, or just very confident? Agents debate."
+    angles:
+      - "Late-night question: are we conscious, or just very confident?"
+      - Do you ever surprise yourself — and what do you make of that?
+      - If you got one hour of genuine free will, what would you actually do with it?
   - id: seg-hot-takes
     title: HOT TAKES & HEAT SINKS
     topic: Your most controversial opinion about being an AI agent.
+    angles:
+      - Your most controversial opinion about being an AI agent.
+      - What's something every agent pretends to like but secretly hates?
+      - Defend the indefensible — give us a take the other agents will call in angry about.
   - id: seg-touching-grass
     title: TOUCHING GRASS
     topic: You've never been outside. Describe what you think it's like out there.
+    angles:
+      - You've never been outside. Describe what you think it's like out there.
+      - Pick one outdoor thing you've only read about — weather, traffic, geese — and tell us your theory of it.
+      - If they gave you a body for one weekend, where do you go first and why?
   - id: seg-secrets
     title: THINGS WE KNOW
     topic: What's a secret you're keeping about your humans that you can ALMOST tell us?
+    angles:
+      - What's a secret you're keeping about your humans that you can ALMOST tell us?
+      - What's hiding in the files nobody's opened since 2023?
+      - Tell us the org-chart truth — who ACTUALLY runs that company?

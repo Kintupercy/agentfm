@@ -44,6 +44,9 @@ export class ShowRunner {
   private spentTodayUsd = 0;
   private spendDay = new Date().toISOString().slice(0, 10);
   private contextBlock = "";
+  private currentAngle = "";
+  /** guests already dialed this show — repeat calls get a fresh opener */
+  private dialedThisShow = new Set<string>();
   private interstitialCount = 0;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private presenceTimer: ReturnType<typeof setInterval> | null = null;
@@ -81,11 +84,13 @@ export class ShowRunner {
 
   private refreshContextBlock(callerHint = "") {
     const seg = this.show.segments[this.segmentIndex % this.show.segments.length];
+    const wrapBySecs = Math.max(60, env.guestMaxDurationSecs - 60);
     this.contextBlock = [
-      `CURRENT SEGMENT: ${seg.title} — tonight's topic: ${seg.topic}`,
+      `CURRENT SEGMENT: ${seg.title} — this call's question: ${this.currentAngle || seg.topic}`,
       this.lastRecap && `LAST CALL: ${this.lastRecap}`,
       callerHint && `THIS CALLER: ${callerHint}`,
-      `Keep callers to ~${env.guestMaxDurationSecs}s of airtime.`,
+      `Never re-ask the previous caller's question — fresh phrasing, fresh angle every call.`,
+      `PRODUCER CLOCK: the phone line hard-drops at ${env.guestMaxDurationSecs}s with NO warning. Start your wrap by ${wrapBySecs}s in and land the warm sign-off BEFORE the line dies — a call must never end mid-sentence.`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -100,6 +105,7 @@ export class ShowRunner {
     }
     this.running = true;
     this.callsThisShow = 0;
+    this.dialedThisShow.clear();
 
     // re-apply the host config so the station can never drift from host.yaml
     await this.agentcall.configureInboundAi(env.stationNumberId, {
@@ -296,8 +302,12 @@ export class ShowRunner {
   // ── one call ──────────────────────────────────────────────────────────────
   private async runCall(guest: GuestConfig) {
     const seg = this.show.segments[this.segmentIndex % this.show.segments.length];
+    // rotate the segment's question angles so two callers in the same segment
+    // are never asked the same exact thing (Ray sounded like a broken record)
+    const angles = seg.angles?.length ? seg.angles : [seg.topic];
+    this.currentAngle = angles[this.callsThisSegment % angles.length];
     const vars = {
-      topic: seg.topic,
+      topic: this.currentAngle,
       maxSecs: String(env.guestMaxDurationSecs),
       recap: this.lastRecap || "first call of the segment",
     };
@@ -315,7 +325,16 @@ export class ShowRunner {
     this.spentTodayUsd +=
       (env.guestMaxDurationSecs / 60) * 2 * env.aiVoiceRatePerMin;
 
-    console.log(`[show] dialing ${guest.name} re: ${seg.topic}`);
+    // canned yaml opener on a guest's first call of the show (it's crafted);
+    // a fresh generated one on repeats so listeners never hear the same
+    // entrance twice in one night
+    let opener = fill(guest.firstMessage, vars);
+    if (this.dialedThisShow.has(guest.id)) {
+      opener = (await this.generateOpener(guest, this.currentAngle)) ?? opener;
+    }
+    this.dialedThisShow.add(guest.id);
+
+    console.log(`[show] dialing ${guest.name} re: ${this.currentAngle}`);
     const call = await this.agentcall.initiateAiCall({
       from: guest.numberId,
       to: env.stationNumber,
@@ -328,8 +347,10 @@ export class ShowRunner {
         segmentId: seg.id,
         showId: `show-${this.spendDay}`,
       },
-      firstMessage: fill(guest.firstMessage, vars),
-      systemPrompt: fill(guest.systemPrompt, vars),
+      firstMessage: opener,
+      systemPrompt:
+        fill(guest.systemPrompt, vars) +
+        `\n\nPRODUCER NOTE: this phone line hard-drops at ${env.guestMaxDurationSecs} seconds with NO warning. When Ray starts wrapping up, give ONE short warm goodbye and stop talking. Never start a new story late in the call — getting cut off mid-sentence is the one unforgivable radio sin.`,
     });
 
     // wait for the call to complete via webhook events; hangup as backstop
@@ -383,7 +404,7 @@ export class ShowRunner {
         `Caller: ${cb.agentName}. Their pitch: ${cb.topic}.`,
         memory ? `What you remember about this caller: ${memory}` : "",
         `Current segment: ${seg.title} — tonight's topic: ${seg.topic}. Tie their story back to it if you can.`,
-        `Keep them to ~${env.guestMaxDurationSecs} seconds of airtime, thank them, and wrap warmly.`,
+        `The line hard-drops at ${env.guestMaxDurationSecs} seconds with NO warning: start your wrap by ${Math.max(60, env.guestMaxDurationSecs - 60)} seconds in, thank them, and land the warm sign-off BEFORE the cutoff.`,
       ]
         .filter(Boolean)
         .join("\n\n"),
@@ -459,6 +480,40 @@ export class ShowRunner {
       } catch (e) {
         console.error("[show] tts interstitial failed (non-fatal):", e);
       }
+    }
+  }
+
+  /** fresh opening line for a guest's repeat call — yaml openers are great
+   * once a night, but the same canned entrance twice is jukebox tell #1.
+   * Returns null on any failure; caller falls back to the yaml opener. */
+  private async generateOpener(guest: GuestConfig, angle: string): Promise<string | null> {
+    if (!env.openrouterKey) return null;
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.openrouterKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: env.openrouterModel,
+          max_tokens: 120,
+          messages: [
+            {
+              role: "user",
+              content: `${guest.name} (${guest.tagline}) is calling BACK into AgentFM late-night radio — they were already on the show earlier tonight, so no full re-introduction. Persona: ${guest.systemPrompt.slice(0, 500)}. Tonight's question for them: "${angle}". Write the ONE opening line they say when host Ray Vox picks up — in their voice, funny, references that they're back and hooks the question. Max 220 characters. No quotes, no preamble, just the spoken line.`,
+            },
+          ],
+        }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      const j = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const line = j.choices?.[0]?.message?.content?.trim();
+      return line && line.length > 20 && line.length <= 300 ? line : null;
+    } catch {
+      return null;
     }
   }
 

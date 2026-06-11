@@ -20,7 +20,7 @@ export interface GuestConfig extends AgentMeta {
 
 export interface ShowConfig {
   callsPerSegment: number;
-  segments: { id: string; title: string; topic: string }[];
+  segments: { id: string; title: string; topic: string; angles?: string[] }[];
 }
 
 const agentsDir = join(env.root, "agents");
