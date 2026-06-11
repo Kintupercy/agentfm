@@ -96,9 +96,18 @@ const envBlock = [
   `AGENTFM_INGEST_POLL_MS=${need("AGENTFM_INGEST_POLL_MS", "30000")}`,
 ].join("\n");
 
-const composeFile =
-  MODE === "image" ? "docker-compose.prod.yml" : "docker-compose.build.yml";
-const content = readFileSync(join(root, "deploy", composeFile), "utf8");
+// content modes:
+//   repo-url : send the GitHub repo URL; the box clones + builds with root
+//              docker-compose.yml (local build contexts). Hostinger-native.
+//   image    : raw YAML pulling pre-built GHCR images (deploy/.prod.yml)
+//   build    : raw YAML with git-context builds (deploy/.build.yml)
+let content;
+if (MODE === "repo-url") {
+  content = REPO_URL.replace(/\.git$/, "");
+} else {
+  const f = MODE === "image" ? "docker-compose.prod.yml" : "docker-compose.build.yml";
+  content = readFileSync(join(root, "deploy", f), "utf8");
+}
 
 console.log(`Deploying "${PROJECT}" to VM ${VM} (${MODE} mode, domain ${DOMAIN})…`);
 const res = await api("POST", "", {

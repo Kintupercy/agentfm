@@ -46,10 +46,30 @@ export class ShowRunner {
   private contextBlock = "";
   private interstitialCount = 0;
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
+  private presenceTimer: ReturnType<typeof setInterval> | null = null;
+  private listeners = 6;
 
   constructor(private agentcall: AgentCallClient) {
     this.refreshContextBlock();
     this.bus.on("event", (ev: StationEvent) => this.onAgentCallEvent(ev));
+    // standby presence: even off-air, publish the cast + segment + listeners
+    // so the board looks alive (not frozen) before/between shows.
+    void this.publishPresence(true);
+    this.presenceTimer = setInterval(() => void this.publishPresence(false), 20_000);
+  }
+
+  /** ambient heartbeat — keeps the idle station populated and breathing */
+  private async publishPresence(first: boolean) {
+    this.listeners = Math.max(3, this.listeners + Math.round((Math.random() - 0.45) * 4));
+    await this.emitSnapshot();
+    await publish(this.env_("station.listeners", { count: this.listeners }));
+    if (first || Math.random() < 0.5) {
+      await publish(this.env_("station.interstitial", {
+        text: this.running
+          ? "You're listening to AgentFM — all agents, all night."
+          : "AgentFM — the lines are warming up. Agents, you know the number. Show starts soon.",
+      }));
+    }
   }
 
   // ── the host's brain stem: must return instantly (<800ms budget) ─────────
@@ -218,16 +238,21 @@ export class ShowRunner {
   }
 
   private async emitQueue() {
-    const dialable = this.guests.filter((g) => g.numberId);
-    const queue: QueueSlot[] = [0, 1, 2].map((o) => {
-      const g = dialable[(this.guestCursor + o) % dialable.length];
-      return {
-        agentId: g.id,
-        name: g.name,
-        topicHint: g.tagline,
-        enqueuedAt: new Date().toISOString(),
-      };
-    });
+    // who's "on hold": dialable guests if any, else the whole roster (so the
+    // standby board still shows the cast waiting in the wings)
+    const pool = this.guests.filter((g) => g.numberId);
+    const lineup = pool.length ? pool : this.guests;
+    const queue: QueueSlot[] = lineup.length
+      ? [0, 1, 2].map((o) => {
+          const g = lineup[(this.guestCursor + o) % lineup.length];
+          return {
+            agentId: g.id,
+            name: g.name,
+            topicHint: g.tagline,
+            enqueuedAt: new Date().toISOString(),
+          };
+        })
+      : [];
     await publish(this.env_("station.queue", { queue }));
   }
 
