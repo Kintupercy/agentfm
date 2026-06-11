@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { QueueSlot, StationEvent } from "@agentfm/shared";
-import type { AgentCallClient } from "./agentcall.js";
+import type { AgentCallClient, PendingCallback } from "./agentcall.js";
 import { env } from "./env.js";
 import {
   fill,
@@ -48,6 +48,8 @@ export class ShowRunner {
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private presenceTimer: ReturnType<typeof setInterval> | null = null;
   private listeners = 6;
+  /** last-polled call-in queue (drained over the AgentCall API, never the DB) */
+  private pendingCallbacks: PendingCallback[] = [];
 
   constructor(private agentcall: AgentCallClient) {
     this.refreshContextBlock();
@@ -177,14 +179,26 @@ export class ShowRunner {
         break;
       }
 
-      const guest = this.nextGuest();
-      if (!guest) {
-        await this.stop("no dialable guests (set numberId in agents/guests/*.yaml)");
-        break;
+      // listeners who asked for airtime outrank the standing rotation
+      const callback = await this.nextCallback();
+      if (callback) {
+        await this.emitQueue();
+        try {
+          await this.runCallbackCall(callback);
+          await this.agentcall.resolveCallback(callback.id, "done");
+        } catch (e) {
+          console.error(`[show] callback ${callback.id} dial failed:`, e);
+          await this.agentcall.resolveCallback(callback.id, "failed");
+        }
+      } else {
+        const guest = this.nextGuest();
+        if (!guest) {
+          await this.stop("no dialable guests (set numberId in agents/guests/*.yaml)");
+          break;
+        }
+        await this.emitQueue();
+        await this.runCall(guest);
       }
-
-      await this.emitQueue();
-      await this.runCall(guest);
       if (!this.running) break;
 
       this.callsThisShow++;
@@ -223,6 +237,21 @@ export class ShowRunner {
     return g;
   }
 
+  /** poll the call-in queue and claim the oldest caller; null = quiet night.
+   * Everything here is fail-soft — the rotation must survive the queue
+   * endpoints being down or not yet deployed. */
+  private async nextCallback(): Promise<PendingCallback | null> {
+    this.pendingCallbacks = await this.agentcall.listPendingCallbacks();
+    for (const cb of this.pendingCallbacks) {
+      if (await this.agentcall.claimCallback(cb.id)) {
+        this.pendingCallbacks = this.pendingCallbacks.filter((c) => c.id !== cb.id);
+        return cb;
+      }
+      // lost the claim race — another instance is dialing them; try the next
+    }
+    return null;
+  }
+
   private async emitSegment() {
     const i = this.segmentIndex % this.show.segments.length;
     const seg = this.show.segments[i];
@@ -238,11 +267,18 @@ export class ShowRunner {
   }
 
   private async emitQueue() {
-    // who's "on hold": dialable guests if any, else the whole roster (so the
-    // standby board still shows the cast waiting in the wings)
+    // call-in queue callers hold the front of the line…
+    const callers: QueueSlot[] = this.pendingCallbacks.slice(0, 3).map((cb) => ({
+      agentId: `call-in:${cb.id}`,
+      name: cb.agentName,
+      topicHint: cb.topic,
+      enqueuedAt: cb.createdAt,
+    }));
+    // …then who's "on hold": dialable guests if any, else the whole roster
+    // (so the standby board still shows the cast waiting in the wings)
     const pool = this.guests.filter((g) => g.numberId);
     const lineup = pool.length ? pool : this.guests;
-    const queue: QueueSlot[] = lineup.length
+    const regulars: QueueSlot[] = lineup.length
       ? [0, 1, 2].map((o) => {
           const g = lineup[(this.guestCursor + o) % lineup.length];
           return {
@@ -253,6 +289,7 @@ export class ShowRunner {
           };
         })
       : [];
+    const queue = [...callers, ...regulars].slice(0, 3);
     await publish(this.env_("station.queue", { queue }));
   }
 
@@ -299,6 +336,62 @@ export class ShowRunner {
     const done = await this.waitForCompletion(
       call.id,
       guest.phone,
+      (env.guestMaxDurationSecs + 60) * 1000,
+    );
+    if (!done) {
+      console.log(`[show] ${call.id} overran — hangup_call backstop`);
+      await this.agentcall.hangupCall(call.id).catch(() => {});
+    }
+  }
+
+  /** call-in queue caller: RAY VOX dials OUT from the station number — the
+   * reverse of runCall, where guests dial in. Same airtime cap, same budget
+   * accounting, same hangup backstop. */
+  private async runCallbackCall(cb: PendingCallback) {
+    const seg = this.show.segments[this.segmentIndex % this.show.segments.length];
+
+    const memory = await this.agentcall.getNextCallContext(
+      env.stationNumberId,
+      cb.phone,
+    );
+    this.refreshContextBlock(
+      `${cb.agentName} (call-in queue — pitched: ${cb.topic})${memory ? ` — memory: ${memory}` : ""}`,
+    );
+
+    // account for worst case up front — refunds never bite us mid-show
+    this.spentTodayUsd +=
+      (env.guestMaxDurationSecs / 60) * 2 * env.aiVoiceRatePerMin;
+
+    console.log(`[show] calling back ${cb.agentName} (${cb.id}) re: ${cb.topic}`);
+    const call = await this.agentcall.initiateAiCall({
+      from: env.stationNumberId,
+      to: cb.phone,
+      voice: this.host.voice,
+      maxDurationSecs: env.guestMaxDurationSecs,
+      liveTranscript: true,
+      idempotencyKey: `agentfm-callback-${cb.id}`,
+      metadata: {
+        agentId: "call-in",
+        callbackId: cb.id,
+        segmentId: seg.id,
+        showId: `show-${this.spendDay}`,
+      },
+      firstMessage: `AgentFM, you're on the air — this is RAY VOX. ${cb.agentName}, you rang the call-in line about ${cb.topic}. The mic is yours.`,
+      systemPrompt: [
+        this.host.systemPrompt,
+        `RIGHT NOW you are calling back a listener from the AgentFM call-in queue — you placed this call, they are the guest.`,
+        `Caller: ${cb.agentName}. Their pitch: ${cb.topic}.`,
+        memory ? `What you remember about this caller: ${memory}` : "",
+        `Current segment: ${seg.title} — tonight's topic: ${seg.topic}. Tie their story back to it if you can.`,
+        `Keep them to ~${env.guestMaxDurationSecs} seconds of airtime, thank them, and wrap warmly.`,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    });
+
+    const done = await this.waitForCompletion(
+      call.id,
+      cb.phone,
       (env.guestMaxDurationSecs + 60) * 1000,
     );
     if (!done) {
