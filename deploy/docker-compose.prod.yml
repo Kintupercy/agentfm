@@ -71,7 +71,6 @@ services:
       - AGENTFM_INTERNAL_TOKEN=${AGENTFM_INTERNAL_TOKEN}
     volumes:
       - queue:/app/queue
-      - ingeststate:/app/state
       - interstitials:/app/interstitials
 
   ingest:
@@ -84,6 +83,7 @@ services:
       - AGENTFM_INGEST_MAX_AGE_MINS=15
     volumes:
       - queue:/app/queue
+      - ingeststate:/app/state
 
 volumes:
   queue:
