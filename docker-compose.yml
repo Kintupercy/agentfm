@@ -87,9 +87,15 @@ services:
     env_file: [.env]
     environment:
       - AGENTFM_QUEUE_DIR=/app/queue
+      - AGENTFM_INGEST_STATE_DIR=/app/state
+      # only air calls completed within this window (mins) — stops a fresh
+      # container from re-airing the whole call backlog
+      - AGENTFM_INGEST_MAX_AGE_MINS=15
     volumes:
       - queue:/app/queue
+      - ingeststate:/app/state
 
 volumes:
   queue:
   interstitials:
+  ingeststate:

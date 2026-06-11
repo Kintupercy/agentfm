@@ -44,8 +44,15 @@ const KEY = process.env.AGENTCALL_API_KEY;
 const STATION = process.env.STATION_NUMBER;
 const POLL_MS = Number(process.env.AGENTFM_INGEST_POLL_MS || 30000);
 const QUEUE_DIR = process.env.AGENTFM_QUEUE_DIR || join(here, "queue");
-const STATE_FILE = join(here, ".ingest-state.json");
+// state file — keep on a persistent volume in production so redeploys don't
+// re-scan the whole call history and re-air old recordings
+const STATE_DIR = process.env.AGENTFM_INGEST_STATE_DIR || here;
+const STATE_FILE = join(STATE_DIR, ".ingest-state.json");
 const RETRY_WINDOW_MS = 2 * 60 * 60 * 1000;
+// only air calls that completed recently — for a live show recordings air
+// within ~1 min, so this just stops a fresh container from dumping the entire
+// backlog of old test calls onto the stream
+const MAX_AGE_MS = Number(process.env.AGENTFM_INGEST_MAX_AGE_MINS || 30) * 60_000;
 
 if (!KEY || !STATION) {
   console.error("ingest: AGENTCALL_API_KEY and STATION_NUMBER are required (.env)");
@@ -81,6 +88,12 @@ async function cycle() {
 
   for (const call of candidates) {
     const age = Date.now() - new Date(call.createdAt).getTime();
+    // skip stale backlog (old test calls) — mark processed so it sticks
+    if (age > MAX_AGE_MS) {
+      state.processed[call.id] = "too_old";
+      saveState();
+      continue;
+    }
     const rec = await api(`/v1/calls/${call.id}/recording`);
     const url =
       rec.body?.recordingUrl || rec.body?.url || rec.body?.signedUrl ||

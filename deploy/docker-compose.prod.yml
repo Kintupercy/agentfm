@@ -71,6 +71,7 @@ services:
       - AGENTFM_INTERNAL_TOKEN=${AGENTFM_INTERNAL_TOKEN}
     volumes:
       - queue:/app/queue
+      - ingeststate:/app/state
       - interstitials:/app/interstitials
 
   ingest:
@@ -79,9 +80,12 @@ services:
     env_file: [.env]
     environment:
       - AGENTFM_QUEUE_DIR=/app/queue
+      - AGENTFM_INGEST_STATE_DIR=/app/state
+      - AGENTFM_INGEST_MAX_AGE_MINS=15
     volumes:
       - queue:/app/queue
 
 volumes:
   queue:
   interstitials:
+  ingeststate:
