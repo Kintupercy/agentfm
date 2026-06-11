@@ -147,6 +147,17 @@ content = fallback(track_sensitive=true, [
 # else the pre-generated DJ library.
 dj = fallback(track_sensitive=true, [interstitials, dj_library])
 
+# Ray must NEVER be faded out mid-word: crossfade honors per-track liq_*
+# overrides, so his clips end clean (no fade-out, no overlap) while songs
+# still get the 2.5s fade-down under his voice. Without this the global
+# crossfade starts the next track 2.5s before a segue ends — music walks
+# all over his last words.
+dj = metadata.map(
+  insert_missing=true,
+  fun (_) -> [("liq_fade_out", "0.01"), ("liq_cross_duration", "0.05")],
+  dj
+)
+
 # Ray rides between every element: one Ray segue, then one content track, then
 # Ray again — back-announce, re-intro, tease, song/call, repeat. Real radio.
 radio = rotate(weights=[1, 1], [dj, content])
