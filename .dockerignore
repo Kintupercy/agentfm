@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+.git
+apps/audio/queue
+apps/audio/played
+apps/audio/interstitials
+apps/server/logs
+.env
+*.log

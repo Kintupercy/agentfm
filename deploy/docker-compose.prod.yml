@@ -1,0 +1,87 @@
+# AgentFM production stack — one Hostinger Docker-manager project.
+# Deployed via the Hostinger API (deploy/deploy.mjs), NOT committed with
+# secrets: every value below comes from the `environment` field at deploy
+# time. TLS + routing piggyback on the box's system Traefik (same label
+# pattern the Hermes agents use, proven working on this host).
+#
+# Public surface (via Traefik, certresolver=letsencrypt):
+#   https://<DOMAIN>/            → web (static SPA)
+#   https://<DOMAIN>/api/*       → engine (webhooks, contextWebhook)
+#   https://<DOMAIN>/stream      → icecast mount /agentfm (rewritten)
+services:
+  web:
+    image: ghcr.io/kintupercy/agentfm-web:latest
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.agentfm-web.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.agentfm-web.entrypoints=websecure
+      - traefik.http.routers.agentfm-web.tls.certresolver=letsencrypt
+      - traefik.http.services.agentfm-web.loadbalancer.server.port=80
+
+  engine:
+    image: ghcr.io/kintupercy/agentfm-engine:latest
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      - PORT=8787
+      - AGENTFM_PUBLIC_URL=https://${DOMAIN}/api
+      - AGENTFM_INTERSTITIALS_DIR=/shared/interstitials
+    volumes:
+      - interstitials:/shared/interstitials
+    labels:
+      - traefik.enable=true
+      # /api strips to / before hitting the engine (webhooks live at root)
+      - traefik.http.routers.agentfm-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.agentfm-api.entrypoints=websecure
+      - traefik.http.routers.agentfm-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.agentfm-api.middlewares=agentfm-api-strip
+      - traefik.http.middlewares.agentfm-api-strip.stripprefix.prefixes=/api
+      - traefik.http.services.agentfm-api.loadbalancer.server.port=8787
+
+  icecast:
+    image: libretime/icecast:2.4.4
+    restart: unless-stopped
+    environment:
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_ADMIN_PASSWORD=${ICECAST_ADMIN_PASSWORD}
+      - ICECAST_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_RELAY_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+    labels:
+      - traefik.enable=true
+      # /stream → icecast mount /agentfm
+      - traefik.http.routers.agentfm-stream.rule=Host(`${DOMAIN}`) && PathPrefix(`/stream`)
+      - traefik.http.routers.agentfm-stream.entrypoints=websecure
+      - traefik.http.routers.agentfm-stream.tls.certresolver=letsencrypt
+      - traefik.http.routers.agentfm-stream.middlewares=agentfm-stream-rw
+      - traefik.http.middlewares.agentfm-stream-rw.replacepathregex.regex=^/stream/?$$
+      - traefik.http.middlewares.agentfm-stream-rw.replacepathregex.replacement=/agentfm
+      - traefik.http.services.agentfm-stream.loadbalancer.server.port=8000
+
+  broadcast:
+    image: ghcr.io/kintupercy/agentfm-broadcast:latest
+    restart: unless-stopped
+    depends_on: [icecast]
+    environment:
+      - ICECAST_HOST=icecast
+      - ICECAST_PORT=8000
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_MOUNT=/agentfm
+      - AGENTFM_NOW_PLAYING_URL=http://engine:8787/internal/now-playing
+      - AGENTFM_INTERNAL_TOKEN=${AGENTFM_INTERNAL_TOKEN}
+    volumes:
+      - queue:/app/queue
+      - interstitials:/app/interstitials
+
+  ingest:
+    image: ghcr.io/kintupercy/agentfm-ingest:latest
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      - AGENTFM_QUEUE_DIR=/app/queue
+    volumes:
+      - queue:/app/queue
+
+volumes:
+  queue:
+  interstitials:

@@ -1,0 +1,23 @@
+{
+  "$comment": "Station audio manifest — read by apps/audio/station.liq. Paths relative to this directory. All-real Suno assets as of 2026-06-10 (2 IDs, 2 bumpers, 7 beds, ad reel, dial-tone stinger) — only stinger-news.wav remains a synthesized placeholder. Production specs in docs/station-audio-production.md. ALL assets must be AI-generated or original.",
+  "ids": [
+    "station-id-switchboard-nights.mp3",
+    "station-id-agentfm-dialtone.mp3"
+  ],
+  "bumpers": ["bumper-brass-long.mp3", "bumper-brass-short.mp3"],
+  "stingers": {
+    "news": "stinger-news.wav",
+    "callin": "stinger-dialtone.mp3"
+  },
+  "beds": [
+    "bed-amber.mp3",
+    "bed-switchboard-nights.mp3",
+    "bed-brass-loop-1.mp3",
+    "bed-brass-loop-2.mp3",
+    "bed-brass-exchange-1.mp3",
+    "bed-brass-exchange-2.mp3",
+    "bed-dialtone-extended.mp3"
+  ],
+  "ads": ["ad-break-reel.mp3"],
+  "emergency": "bed-amber.mp3"
+}

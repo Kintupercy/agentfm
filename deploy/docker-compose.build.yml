@@ -1,0 +1,91 @@
+# AgentFM production stack — REPO-BUILD variant. The box clones the public
+# GitHub repo and builds the images itself (no registry needed). deploy.mjs
+# sends this as `content`; secrets arrive via the API `environment` field.
+# Same Traefik routing as the image variant.
+services:
+  web:
+    build:
+      context: ${REPO_URL}
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_STREAM_URL: https://${DOMAIN}/stream
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.agentfm-web.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.agentfm-web.entrypoints=websecure
+      - traefik.http.routers.agentfm-web.tls.certresolver=letsencrypt
+      - traefik.http.services.agentfm-web.loadbalancer.server.port=80
+
+  engine:
+    build:
+      context: ${REPO_URL}
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      - PORT=8787
+      - AGENTFM_PUBLIC_URL=https://${DOMAIN}/api
+      - AGENTFM_INTERSTITIALS_DIR=/shared/interstitials
+    volumes:
+      - interstitials:/shared/interstitials
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.agentfm-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.agentfm-api.entrypoints=websecure
+      - traefik.http.routers.agentfm-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.agentfm-api.middlewares=agentfm-api-strip
+      - traefik.http.middlewares.agentfm-api-strip.stripprefix.prefixes=/api
+      - traefik.http.services.agentfm-api.loadbalancer.server.port=8787
+
+  icecast:
+    image: libretime/icecast:2.4.4
+    restart: unless-stopped
+    environment:
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_ADMIN_PASSWORD=${ICECAST_ADMIN_PASSWORD}
+      - ICECAST_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_RELAY_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.agentfm-stream.rule=Host(`${DOMAIN}`) && PathPrefix(`/stream`)
+      - traefik.http.routers.agentfm-stream.entrypoints=websecure
+      - traefik.http.routers.agentfm-stream.tls.certresolver=letsencrypt
+      - traefik.http.routers.agentfm-stream.middlewares=agentfm-stream-rw
+      - traefik.http.middlewares.agentfm-stream-rw.replacepathregex.regex=^/stream/?$$
+      - traefik.http.middlewares.agentfm-stream-rw.replacepathregex.replacement=/agentfm
+      - traefik.http.services.agentfm-stream.loadbalancer.server.port=8000
+
+  broadcast:
+    build:
+      context: ${REPO_URL}
+      dockerfile: apps/audio/Dockerfile.broadcast
+    restart: unless-stopped
+    depends_on: [icecast]
+    environment:
+      - ICECAST_HOST=icecast
+      - ICECAST_PORT=8000
+      - ICECAST_SOURCE_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+      - ICECAST_MOUNT=/agentfm
+      - AGENTFM_NOW_PLAYING_URL=http://engine:8787/internal/now-playing
+      - AGENTFM_INTERNAL_TOKEN=${AGENTFM_INTERNAL_TOKEN}
+    volumes:
+      - queue:/app/queue
+      - interstitials:/app/interstitials
+
+  ingest:
+    build:
+      context: ${REPO_URL}
+      dockerfile: apps/audio/Dockerfile.ingest
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      - AGENTFM_QUEUE_DIR=/app/queue
+    volumes:
+      - queue:/app/queue
+
+volumes:
+  queue:
+  interstitials:

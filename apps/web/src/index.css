@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Limelight", serif;
+  --font-label: "Barlow Condensed", sans-serif;
+  --font-mono: "IBM Plex Mono", monospace;
+
+  --color-coal: #0d0b09;
+  --color-panel: #171310;
+  --color-panel-2: #1f1a15;
+  --color-brass: #b08d57;
+  --color-amber: #f5b942;
+  --color-amber-dim: #8a6a2a;
+  --color-cream: #f0e6d2;
+  --color-muted: #9c8e78;
+  --color-onair: #ff4136;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-coal);
+  color: var(--color-cream);
+  font-family: var(--font-label);
+  overflow-x: hidden;
+}
+
+/* ── retro atmosphere ─────────────────────────────────────────────── */
+
+.crt::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    rgba(0, 0, 0, 0.13) 3px,
+    transparent 4px
+  );
+  mix-blend-mode: overlay;
+}
+
+.crt::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 51;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+.noise {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 49;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── glow + signage ───────────────────────────────────────────────── */
+
+.glow-amber {
+  text-shadow:
+    0 0 6px rgba(245, 185, 66, 0.9),
+    0 0 18px rgba(245, 185, 66, 0.5),
+    0 0 42px rgba(245, 185, 66, 0.25);
+}
+
+.onair-sign {
+  color: var(--color-onair);
+  text-shadow:
+    0 0 6px rgba(255, 65, 54, 0.95),
+    0 0 16px rgba(255, 65, 54, 0.6),
+    0 0 38px rgba(255, 65, 54, 0.35);
+  animation: onair-flicker 3.4s infinite;
+}
+
+.onair-sign-off {
+  color: #4a3431;
+  text-shadow: none;
+}
+
+@keyframes onair-flicker {
+  0%, 100% { opacity: 1; }
+  92% { opacity: 1; }
+  93% { opacity: 0.6; }
+  94% { opacity: 1; }
+  97% { opacity: 0.75; }
+  98% { opacity: 1; }
+}
+
+@keyframes blink-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.blink-slow { animation: blink-slow 1.6s ease-in-out infinite; }
+
+@keyframes blink-fast {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+.blink-fast { animation: blink-fast 0.45s steps(2) infinite; }
+
+/* ── ticker ───────────────────────────────────────────────────────── */
+
+@keyframes ticker-scroll {
+  from { transform: translateX(100%); }
+  to { transform: translateX(-100%); }
+}
+.ticker-text {
+  display: inline-block;
+  white-space: nowrap;
+  animation: ticker-scroll 26s linear infinite;
+}
+
+/* ── cards ────────────────────────────────────────────────────────── */
+
+.card {
+  background: linear-gradient(160deg, var(--color-panel-2), var(--color-panel));
+  border: 1px solid rgba(176, 141, 87, 0.28);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgba(240, 230, 210, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.feed-enter {
+  animation: feed-in 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+@keyframes feed-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(176, 141, 87, 0.4);
+}
+
+/* thin brass scrollbars */
+.scroll-rail {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(176, 141, 87, 0.5) transparent;
+}

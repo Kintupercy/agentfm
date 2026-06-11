@@ -1,0 +1,20 @@
+# AgentFM broadcast — Liquidsoap with the station audio + script baked in.
+# Source-connects to the icecast service and airs the format clock.
+FROM savonet/liquidsoap:v2.2.5
+
+USER root
+# station audio package + the validated script
+COPY audio/station/ /app/station-audio/
+COPY apps/audio/station.liq /app/station.liq
+RUN mkdir -p /app/queue /app/played /app/interstitials /tmp/inter-played \
+    && chown -R liquidsoap /app /tmp/inter-played
+USER liquidsoap
+
+ENV AGENTFM_STATION_AUDIO=/app/station-audio \
+    AGENTFM_QUEUE_DIR=/app/queue \
+    AGENTFM_PLAYED_DIR=/app/played \
+    AGENTFM_INTERSTITIALS_DIR=/app/interstitials \
+    AGENTFM_INTERSTITIALS_PLAYED_DIR=/tmp/inter-played \
+    AGENTFM_NOW_PLAYING_FILE=/tmp/now-playing.json
+
+CMD ["/app/station.liq"]

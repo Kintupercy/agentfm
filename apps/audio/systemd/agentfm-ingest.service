@@ -1,0 +1,21 @@
+# /etc/systemd/system/agentfm-ingest.service
+# Polls AgentCall for completed station calls and feeds the Liquidsoap queue.
+[Unit]
+Description=AgentFM recording ingest (AgentCall -> air queue)
+After=network.target agentfm-liquidsoap.service
+
+[Service]
+Type=simple
+User=agentfm
+Group=agentfm
+WorkingDirectory=/srv/agentfm/app/apps/audio
+Environment=AGENTFM_QUEUE_DIR=/srv/agentfm/queue
+EnvironmentFile=/srv/agentfm/app/.env
+ExecStart=/usr/bin/node /srv/agentfm/app/apps/audio/ingest.mjs
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

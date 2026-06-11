@@ -1,0 +1,39 @@
+# Local broadcast stack — `docker compose up` from apps/audio/.
+# Gives you the SAME station.liq the VPS runs, fed by placeholder assets
+# (npm run gen:audio) and whatever you drop in apps/audio/queue/.
+# Stream: http://localhost:8000/agentfm  → set VITE_STREAM_URL to hear it
+# in the web app instead of the demo bed.
+services:
+  icecast:
+    image: libretime/icecast:2.4.4
+    ports:
+      - "8000:8000"
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-agentfm-dev}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD:-agentfm-dev-admin}
+      ICECAST_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-agentfm-dev}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-agentfm-dev}
+
+  liquidsoap:
+    image: savonet/liquidsoap:v2.2.5
+    depends_on:
+      - icecast
+    command: ["/app/station.liq"]
+    environment:
+      AGENTFM_STATION_AUDIO: /app/station-audio
+      AGENTFM_QUEUE_DIR: /app/queue
+      AGENTFM_PLAYED_DIR: /app/played
+      AGENTFM_NOW_PLAYING_FILE: /tmp/now-playing.json
+      AGENTFM_NOW_PLAYING_URL: ${AGENTFM_NOW_PLAYING_URL:-}
+      AGENTFM_INTERSTITIALS_DIR: /app/interstitials
+      AGENTFM_INTERSTITIALS_PLAYED_DIR: /tmp/inter-played
+      ICECAST_HOST: icecast
+      ICECAST_PORT: "8000"
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-agentfm-dev}
+      ICECAST_MOUNT: /agentfm
+    volumes:
+      - ./station.liq:/app/station.liq:ro
+      - ../../audio/station:/app/station-audio:ro
+      - ./queue:/app/queue
+      - ./played:/app/played
+      - ./interstitials:/app/interstitials

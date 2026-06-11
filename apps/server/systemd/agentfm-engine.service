@@ -1,0 +1,22 @@
+# /etc/systemd/system/agentfm-engine.service
+# The station engine: webhook consumer, contextWebhook, show-runner.
+[Unit]
+Description=AgentFM station engine (webhooks + show-runner)
+After=network.target
+
+[Service]
+Type=simple
+User=agentfm
+Group=agentfm
+WorkingDirectory=/srv/agentfm/app
+EnvironmentFile=/srv/agentfm/app/.env
+Environment=AGENTFM_INTERSTITIALS_DIR=/srv/agentfm/interstitials
+ExecStart=/usr/bin/npm run start --workspace=@agentfm/server
+Restart=always
+RestartSec=5
+# logs: journalctl -u agentfm-engine -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

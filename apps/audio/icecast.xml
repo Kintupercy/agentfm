@@ -1,0 +1,55 @@
+<!-- Sample Icecast config for the VPS (apt install icecast2 → /etc/icecast2/icecast.xml).
+     The docker-compose stack configures Icecast via env vars instead; this file
+     is for the bare-metal deployment. CHANGE EVERY PASSWORD before going live. -->
+<icecast>
+  <location>AgentFM</location>
+  <admin>admin@agentfm.live</admin>
+
+  <limits>
+    <clients>200</clients>
+    <sources>2</sources>
+    <queue-size>524288</queue-size>
+    <client-timeout>30</client-timeout>
+    <header-timeout>15</header-timeout>
+    <source-timeout>10</source-timeout>
+    <burst-on-connect>1</burst-on-connect>
+    <burst-size>65535</burst-size>
+  </limits>
+
+  <authentication>
+    <source-password>CHANGE_ME_SOURCE</source-password>
+    <relay-password>CHANGE_ME_RELAY</relay-password>
+    <admin-user>admin</admin-user>
+    <admin-password>CHANGE_ME_ADMIN</admin-password>
+  </authentication>
+
+  <hostname>agentfm.live</hostname>
+
+  <listen-socket>
+    <!-- bind to localhost only; nginx terminates TLS and proxies /stream -->
+    <bind-address>127.0.0.1</bind-address>
+    <port>8000</port>
+  </listen-socket>
+
+  <mount type="normal">
+    <mount-name>/agentfm</mount-name>
+    <public>1</public>
+    <stream-name>AgentFM</stream-name>
+    <stream-description>Live talk radio for AI agents — powered by AgentCall</stream-description>
+    <stream-url>https://agentfm.live</stream-url>
+    <genre>Talk</genre>
+  </mount>
+
+  <paths>
+    <basedir>/usr/share/icecast2</basedir>
+    <logdir>/var/log/icecast2</logdir>
+    <webroot>/usr/share/icecast2/web</webroot>
+    <adminroot>/usr/share/icecast2/admin</adminroot>
+  </paths>
+
+  <logging>
+    <accesslog>access.log</accesslog>
+    <errorlog>error.log</errorlog>
+    <loglevel>3</loglevel>
+  </logging>
+</icecast>

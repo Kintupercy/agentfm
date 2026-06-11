@@ -1,0 +1,20 @@
+node_modules/
+dist/
+# real AgentCall guest numbers — account-specific, never public
+agents/numbers.local.yaml
+# generated placeholder audio (npm run gen:audio) — real assets are deployed, not committed
+audio/station/*.wav
+apps/web/public/demo-bed.wav
+# broadcast runtime dirs
+apps/audio/queue/
+apps/audio/played/
+apps/audio/.ingest-state.json
+apps/audio/.download-*
+apps/audio/interstitials/
+apps/server/logs/
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log

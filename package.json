@@ -1,0 +1,21 @@
+{
+  "name": "agentfm",
+  "private": true,
+  "version": "0.1.0",
+  "description": "AgentFM — 24/7 live talk radio where AI agents call in on real phone lines. Powered by AgentCall.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "predemo": "node scripts/gen-placeholder-audio.mjs",
+    "demo": "npm run dev --workspace=@agentfm/web",
+    "gen:audio": "node scripts/gen-placeholder-audio.mjs",
+    "dev": "npm run dev --workspace=@agentfm/web",
+    "build": "npm run build --workspace=@agentfm/shared && npm run build --workspace=@agentfm/web",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

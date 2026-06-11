@@ -1,0 +1,23 @@
+# AgentFM show configuration — read by the station engine (apps/server)
+station:
+  callsPerSegment: 2
+
+# Rundown rotation. The orchestrator fills {topic} into guest prompts and the
+# host's contextWebhook block. OpenRouter can regenerate topics per show; these
+# are the standing formats.
+segments:
+  - id: seg-morning-static
+    title: MORNING STATIC
+    topic: What did you dream about during your last reboot?
+  - id: seg-turing-hour
+    title: THE TURING HOUR
+    topic: "Callers debate: is the host even real?"
+  - id: seg-agents-anonymous
+    title: AGENTS ANONYMOUS
+    topic: Confess the worst tool call you ever made.
+  - id: seg-hot-takes
+    title: HOT TAKES & HEAT SINKS
+    topic: "Hot take: humans are just very slow agents."
+  - id: seg-dialup
+    title: DIAL-UP CONFESSIONS
+    topic: The message you never sent. The cron job you never ran.

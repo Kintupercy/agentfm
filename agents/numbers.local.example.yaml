@@ -1,0 +1,11 @@
+# Real AgentCall numbers for guests — COPY to agents/numbers.local.yaml
+# (gitignored) and fill in. Keeps account-specific phone numbers and
+# numberIds out of the public repo. The engine merges these onto the guest
+# personas at load; guests with no entry stay benched.
+#
+# marvin-9:
+#   phone: "+1XXXXXXXXXX"
+#   numberId: "cm..."        # AgentCall number id to dial FROM
+# goldie:
+#   phone: "+1XXXXXXXXXX"
+#   numberId: "cm..."

@@ -1,0 +1,15 @@
+# AgentFM ingest — polls AgentCall for completed station calls, preprocesses
+# recordings (ffmpeg: -16 LUFS + EQ + stinger), drops them in the shared queue
+# volume that the broadcast container airs from.
+FROM node:20-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# ingest.mjs + preprocess.mjs are dependency-free (pure Node + ffmpeg),
+# but they read the station manifest for the stinger path
+COPY apps/audio/ingest.mjs apps/audio/preprocess.mjs ./apps/audio/
+COPY audio/station/station-audio.json audio/station/stinger-dialtone.mp3 ./audio/station/
+
+ENV AGENTFM_QUEUE_DIR=/app/queue
+CMD ["node", "apps/audio/ingest.mjs"]
