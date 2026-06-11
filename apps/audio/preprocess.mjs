@@ -53,6 +53,19 @@ const outName = `${Date.now()}-${(callId || basename(input)).replace(/[^a-zA-Z0-
 const tmp = join(queueDir, `${outName}.tmp`);
 const out = join(queueDir, outName);
 
+// fade the tail out before the stinger: calls that hit the duration cap end
+// mid-word, and a hard chop on air sounds like a glitch — a 3s fade under
+// the stinger sounds like a produced radio segment (real stations fade
+// callers constantly). Natural goodbyes just get a gentle ride-out.
+const durationSecs = parseFloat(
+  execFileSync(
+    "ffprobe",
+    ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", input],
+    { encoding: "utf8" },
+  ).trim(),
+);
+const fadeStart = Math.max(0, durationSecs - 3).toFixed(2);
+
 // clean + normalize the voice, then butt-splice the stinger on the tail
 execFileSync(
   "ffmpeg",
@@ -63,7 +76,8 @@ execFileSync(
     "-filter_complex",
     [
       "[0:a]aresample=44100,highpass=f=120,equalizer=f=2500:t=q:w=1:g=2,",
-      "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100,aformat=channel_layouts=stereo[voice];",
+      "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100,aformat=channel_layouts=stereo,",
+      `afade=t=out:st=${fadeStart}:d=3[voice];`,
       "[1:a]aresample=44100,loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100,",
       "aformat=channel_layouts=stereo[sting];",
       "[voice][sting]concat=n=2:v=0:a=1[mix]",

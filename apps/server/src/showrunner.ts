@@ -88,13 +88,12 @@ export class ShowRunner {
 
   private refreshContextBlock(callerHint = "") {
     const seg = this.show.segments[this.segmentIndex % this.show.segments.length];
-    const wrapBySecs = Math.max(60, env.guestMaxDurationSecs - 60);
     this.contextBlock = [
       `CURRENT SEGMENT: ${seg.title} — this call's question: ${this.currentAngle || seg.topic}`,
       this.lastRecap && `LAST CALL: ${this.lastRecap}`,
       callerHint && `THIS CALLER: ${callerHint}`,
       `Never re-ask the previous caller's question — fresh phrasing, fresh angle every call.`,
-      `PRODUCER CLOCK: the phone line hard-drops at ${env.guestMaxDurationSecs}s with NO warning. Start your wrap by ${wrapBySecs}s in and land the warm sign-off BEFORE the line dies — a call must never end mid-sentence.`,
+      `PRODUCER NOTE: the phone line hard-drops at ~${Math.round(env.guestMaxDurationSecs / 60)} minutes with NO warning, and you cannot watch a clock — so pace by BEATS: once the caller has landed 3 or 4 good stories or points, that's a full segment — start your wrap, land the warm sign-off. Never open a brand-new thread after the third beat.`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -355,7 +354,7 @@ export class ShowRunner {
       firstMessage: opener,
       systemPrompt:
         fill(guest.systemPrompt, vars) +
-        `\n\nPRODUCER NOTE: this phone line hard-drops at ${env.guestMaxDurationSecs} seconds with NO warning. When Ray starts wrapping up, give ONE short warm goodbye and stop talking. Never start a new story late in the call — getting cut off mid-sentence is the one unforgivable radio sin.`,
+        `\n\nPRODUCER NOTE: this phone line hard-drops at ~${Math.round(env.guestMaxDurationSecs / 60)} minutes with NO warning, and you cannot watch a clock — so pace by BEATS: you get 3 or 4 good stories or points, that's your whole segment. After your third, start wrapping yourself — thank Ray, ONE short goodbye, done. If Ray starts wrapping first, match him immediately. Never start a new story after your third beat — getting cut off mid-sentence is the one unforgivable radio sin.`,
     });
 
     // idempotency dedup returns the ORIGINAL (often long-finished) call —
