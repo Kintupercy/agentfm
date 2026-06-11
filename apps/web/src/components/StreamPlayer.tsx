@@ -2,44 +2,81 @@ import { useEffect, useRef, useState } from "react";
 import type { NowPlaying } from "@agentfm/shared";
 
 /**
- * The broadcast receiver. Plays the Icecast stream (VITE_STREAM_URL); in demo
- * mode it loops the generated placeholder bed (/demo-bed.wav) so the player
- * is audible with zero infrastructure. Autoplay rules: we never autoplay —
- * playback starts muted-by-default-until-click, i.e. only on user gesture.
+ * The broadcast receiver. The station is ALWAYS on — the Icecast stream runs
+ * 24/7 server-side. We autoplay it MUTED on load (the only autoplay browsers
+ * allow), then unmute automatically on the listener's first interaction
+ * anywhere on the page (click/scroll/keypress/tap). So the radio is always
+ * playing from the moment the page loads; nobody hunts for a play button.
+ *
+ * In demo mode (no VITE_STREAM_URL) it loops the placeholder bed.
  *
  * NOTE: there is no telephony hold music and none is needed — callers in the
- * hold queue are just registered dial slots, not parked phone calls. The
- * "callers on hold" theater is this music bed + the blinking queue jacks.
+ * hold queue are just registered dial slots, not parked phone calls.
  */
 export function StreamPlayer({ nowPlaying }: { nowPlaying: NowPlaying | null }) {
   const streamUrl = import.meta.env.VITE_STREAM_URL || "/demo-bed.wav";
   const isDemo = !import.meta.env.VITE_STREAM_URL;
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(true);
   const [volume, setVolume] = useState(0.8);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
-
-  const toggle = async () => {
     const el = audioRef.current;
     if (!el) return;
-    if (playing) {
-      el.pause();
-      setPlaying(false);
-    } else {
+    el.volume = volume;
+    el.muted = muted;
+  }, [volume, muted]);
+
+  // autoplay muted on mount (browser-allowed); reflect playing state
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.muted = true;
+    el.play().then(
+      () => setPlaying(true),
+      () => setFailed(true),
+    );
+  }, []);
+
+  // unmute on the first user interaction anywhere — the station "turns up"
+  useEffect(() => {
+    if (!muted) return;
+    const unmute = async () => {
+      const el = audioRef.current;
+      if (!el) return;
+      el.muted = false;
       try {
-        // for a live stream, seek to the live edge on resume
-        if (!isDemo) el.load();
+        if (el.paused) await el.play();
+        setPlaying(true);
+      } catch {
+        /* ignore */
+      }
+      setMuted(false);
+    };
+    const opts = { once: true, capture: true } as const;
+    const events = ["pointerdown", "keydown", "touchstart", "wheel", "scroll"];
+    events.forEach((e) => window.addEventListener(e, unmute, opts));
+    return () =>
+      events.forEach((e) => window.removeEventListener(e, unmute, opts));
+  }, [muted]);
+
+  const toggleMute = async () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (el.paused) {
+      try {
         await el.play();
-        setFailed(false);
         setPlaying(true);
       } catch {
         setFailed(true);
+        return;
       }
     }
+    const next = !el.muted;
+    el.muted = next;
+    setMuted(next);
   };
 
   const kindLabel: Record<string, string> = {
@@ -55,19 +92,23 @@ export function StreamPlayer({ nowPlaying }: { nowPlaying: NowPlaying | null }) 
 
   return (
     <div className="card flex items-center gap-3 p-3">
-      <audio ref={audioRef} src={streamUrl} loop={isDemo} preload="none" />
+      {/* always-on, muted-until-interaction live stream */}
+      <audio ref={audioRef} src={streamUrl} loop={isDemo} autoPlay muted preload="auto" />
       <button
-        onClick={toggle}
-        aria-label={playing ? "Pause the AgentFM stream" : "Play the AgentFM stream"}
+        onClick={toggleMute}
+        aria-label={muted ? "Unmute the AgentFM stream" : "Mute the AgentFM stream"}
         className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-amber/50 bg-coal text-amber transition-colors hover:bg-amber/10"
       >
-        {playing ? (
-          <span className="flex gap-1">
-            <span className="h-3.5 w-1 bg-amber" />
-            <span className="h-3.5 w-1 bg-amber" />
-          </span>
+        {muted ? (
+          // muted speaker
+          <span className="text-lg leading-none">🔇</span>
         ) : (
-          <span className="ml-0.5 inline-block border-y-7 border-l-11 border-y-transparent border-l-amber" />
+          // live bars
+          <span className="flex items-end gap-0.5">
+            <span className="h-2 w-1 bg-amber blink-slow" />
+            <span className="h-3.5 w-1 bg-amber" />
+            <span className="h-2.5 w-1 bg-amber blink-slow" />
+          </span>
         )}
       </button>
 
@@ -79,18 +120,23 @@ export function StreamPlayer({ nowPlaying }: { nowPlaying: NowPlaying | null }) 
             }`}
           >
             {playing && <span className="blink-slow">●</span>}{" "}
-            {isDemo ? "DEMO FEED" : "LIVE STREAM"}
+            {isDemo ? "DEMO FEED" : "LIVE"}
           </span>
           {nowPlaying && (
             <span className="chip text-amber/90">
               {kindLabel[nowPlaying.kind] ?? nowPlaying.kind}
             </span>
           )}
+          {muted && playing && (
+            <span className="chip border-amber/50 text-amber blink-slow">
+              ♪ TAP TO LISTEN
+            </span>
+          )}
         </div>
         <p className="truncate text-sm text-cream" title={nowPlaying?.title}>
           {failed
-            ? "Stream unreachable — is the broadcast engine up?"
-            : (nowPlaying?.title ?? "AgentFM broadcast")}
+            ? "Reconnecting to the stream…"
+            : (nowPlaying?.title ?? "AgentFM — live")}
         </p>
       </div>
 
@@ -100,7 +146,10 @@ export function StreamPlayer({ nowPlaying }: { nowPlaying: NowPlaying | null }) 
         max="1"
         step="0.05"
         value={volume}
-        onChange={(e) => setVolume(Number(e.target.value))}
+        onChange={(e) => {
+          setVolume(Number(e.target.value));
+          if (muted && Number(e.target.value) > 0) setMuted(false);
+        }}
         aria-label="Stream volume"
         className="w-20 accent-amber"
       />
