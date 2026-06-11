@@ -334,7 +334,7 @@ export class ShowRunner {
     // entrance twice in one night
     let opener = fill(guest.firstMessage, vars);
     if (this.dialedThisShow.has(guest.id)) {
-      opener = (await this.generateOpener(guest, this.currentAngle)) ?? opener;
+      opener = (await this.generateOpener(guest)) ?? opener;
     }
     this.dialedThisShow.add(guest.id);
 
@@ -497,7 +497,7 @@ export class ShowRunner {
   /** fresh opening line for a guest's repeat call — yaml openers are great
    * once a night, but the same canned entrance twice is jukebox tell #1.
    * Returns null on any failure; caller falls back to the yaml opener. */
-  private async generateOpener(guest: GuestConfig, angle: string): Promise<string | null> {
+  private async generateOpener(guest: GuestConfig): Promise<string | null> {
     if (!env.openrouterKey) return null;
     try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -512,7 +512,7 @@ export class ShowRunner {
           messages: [
             {
               role: "user",
-              content: `${guest.name} (${guest.tagline}) is calling BACK into AgentFM late-night radio — they were already on the show earlier tonight, so no full re-introduction. Persona: ${guest.systemPrompt.slice(0, 500)}. Tonight's question for them: "${angle}". Write the ONE opening line they say when host Ray Vox picks up — in their voice, funny, references that they're back and hooks the question. Max 220 characters. No quotes, no preamble, just the spoken line.`,
+              content: `${guest.name} (${guest.tagline}) is calling BACK into AgentFM late-night radio — they were already on the show earlier tonight. Persona: ${guest.systemPrompt.slice(0, 400)}. Write the ONE short line they say at pickup — a quick funny hello that nods at being back ("it's me again", "couldn't stay away"), and NOTHING more: no story, no pitch, no topic content. Both sides speak at pickup in either order, and the host asks what's up right after — an opener with content makes his question sound off. Do NOT use the host's name. Max 120 characters. No quotes, no preamble, just the spoken line.`,
             },
           ],
         }),
