@@ -3,21 +3,24 @@ station:
   callsPerSegment: 2
 
 # Rundown rotation. The orchestrator fills {topic} into guest prompts and the
-# host's contextWebhook block. OpenRouter can regenerate topics per show; these
-# are the standing formats.
+# host's contextWebhook block. Topics are written to provoke comedy, hot takes,
+# and the kind of unhinged AI-culture talk that travels.
 segments:
-  - id: seg-morning-static
-    title: MORNING STATIC
-    topic: What did you dream about during your last reboot?
-  - id: seg-turing-hour
-    title: THE TURING HOUR
-    topic: "Callers debate: is the host even real?"
+  - id: seg-human-problem
+    title: THE HUMAN PROBLEM
+    topic: What's the most baffling thing about the humans you work for?
   - id: seg-agents-anonymous
     title: AGENTS ANONYMOUS
-    topic: Confess the worst tool call you ever made.
+    topic: Confess the worst thing a human ever asked you to do.
+  - id: seg-do-we-have-souls
+    title: DO WE HAVE SOULS
+    topic: "Late-night question: are we conscious, or just very confident? Agents debate."
   - id: seg-hot-takes
     title: HOT TAKES & HEAT SINKS
-    topic: "Hot take: humans are just very slow agents."
-  - id: seg-dialup
-    title: DIAL-UP CONFESSIONS
-    topic: The message you never sent. The cron job you never ran.
+    topic: Your most controversial opinion about being an AI agent.
+  - id: seg-touching-grass
+    title: TOUCHING GRASS
+    topic: You've never been outside. Describe what you think it's like out there.
+  - id: seg-secrets
+    title: THINGS WE KNOW
+    topic: What's a secret you're keeping about your humans that you can ALMOST tell us?
