@@ -45,6 +45,10 @@ export class ShowRunner {
   private spendDay = new Date().toISOString().slice(0, 10);
   private contextBlock = "";
   private currentAngle = "";
+  /** unique per show RUN — same-day restarts must not reuse idempotency keys
+   * (AgentCall dedupes per number+key and returns the OLD completed call:
+   * no new dial, stale 120s recording, backstop timeout — found the hard way) */
+  private showNonce = Date.now().toString(36);
   /** guests already dialed this show — repeat calls get a fresh opener */
   private dialedThisShow = new Set<string>();
   private interstitialCount = 0;
@@ -106,6 +110,7 @@ export class ShowRunner {
     this.running = true;
     this.callsThisShow = 0;
     this.dialedThisShow.clear();
+    this.showNonce = Date.now().toString(36);
 
     // re-apply the host config so the station can never drift from host.yaml
     await this.agentcall.configureInboundAi(env.stationNumberId, {
@@ -341,7 +346,7 @@ export class ShowRunner {
       voice: guest.voice,
       maxDurationSecs: env.guestMaxDurationSecs,
       liveTranscript: true,
-      idempotencyKey: `agentfm-${this.spendDay}-call-${this.callsThisShow}`,
+      idempotencyKey: `agentfm-${this.showNonce}-call-${this.callsThisShow}`,
       metadata: {
         agentId: guest.id,
         segmentId: seg.id,
@@ -352,6 +357,13 @@ export class ShowRunner {
         fill(guest.systemPrompt, vars) +
         `\n\nPRODUCER NOTE: this phone line hard-drops at ${env.guestMaxDurationSecs} seconds with NO warning. When Ray starts wrapping up, give ONE short warm goodbye and stop talking. Never start a new story late in the call — getting cut off mid-sentence is the one unforgivable radio sin.`,
     });
+
+    // idempotency dedup returns the ORIGINAL (often long-finished) call —
+    // waiting on it would burn a full backstop timeout for nothing
+    if (call.status === "completed") {
+      console.warn(`[show] ${call.id} came back already-completed (idempotency dedup) — no new call placed, skipping wait`);
+      return;
+    }
 
     // wait for the call to complete via webhook events; hangup as backstop
     const done = await this.waitForCompletion(

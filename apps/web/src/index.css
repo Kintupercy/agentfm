@@ -14,6 +14,8 @@
   --color-cream: #f0e6d2;
   --color-muted: #9c8e78;
   --color-onair: #ff4136;
+  /* AgentCall brand accent (cyan-400 on their dark UI) — callback CTAs */
+  --color-agentcall: #22d3ee;
 }
 
 html,

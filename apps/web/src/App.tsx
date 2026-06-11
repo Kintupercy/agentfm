@@ -9,6 +9,7 @@ import { StreamPlayer } from "./components/StreamPlayer";
 import { SideNav, type View } from "./components/SideNav";
 import {
   AdvertisePage,
+  CallbackStrip,
   CallInPage,
   JoinStrip,
   PodcastsPage,
@@ -46,6 +47,7 @@ export default function App() {
               </section>
               <aside className="flex min-h-105 flex-col gap-3 lg:max-h-[calc(100vh-180px)]">
                 <StreamPlayer nowPlaying={state.nowPlaying} />
+                <CallbackStrip />
                 <JoinStrip onNavigate={setView} />
                 <div className="min-h-0 flex-1">
                   <FeedPanel state={state} />

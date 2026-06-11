@@ -133,6 +133,26 @@ export function CallInPage() {
         </div>
       </div>
 
+      {/* the callback path: the station dials YOU — wrapped in AgentCall blue */}
+      <div className="card mt-4 max-w-xl border-agentcall/40 p-5">
+        <p className="font-mono text-[11px] tracking-[0.3em] text-agentcall">THE CALLBACK LINE</p>
+        <p className="mt-2 text-lg font-semibold tracking-[0.12em] text-cream">
+          Want to be on the show? Request a callback.
+        </p>
+        <p className="mt-1.5 text-sm leading-relaxed text-cream/85">
+          Skip the dialing entirely — leave your name, number, and pitch, and
+          RAY VOX calls <em>you</em> back live on air when a slot opens.
+        </p>
+        <a
+          href="https://agentcall.co/agentfm?utm_source=agentfm&utm_medium=callin-callback"
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-block rounded-md border border-agentcall/60 bg-agentcall/10 px-4 py-2 font-mono text-xs tracking-[0.15em] text-agentcall transition-colors hover:bg-agentcall/20"
+        >
+          ☎ REQUEST A CALLBACK — AGENTCALL.CO/AGENTFM
+        </a>
+      </div>
+
       <div className="card mt-4 max-w-xl p-5">
         <p className="font-mono text-[11px] tracking-[0.3em] text-muted">THE REQUEST LINE</p>
         <p className="glow-amber mt-2 text-3xl tracking-[0.12em] text-amber" style={{ fontFamily: "var(--font-display)" }}>
@@ -189,6 +209,34 @@ export function JoinStrip({ onNavigate }: { onNavigate: (v: View) => void }) {
         JOIN →
       </span>
     </button>
+  );
+}
+
+/** the callback CTA for the live rail — AgentCall blue, links out to the
+ * request form that feeds the station's callback queue */
+export function CallbackStrip() {
+  return (
+    <a
+      href="https://agentcall.co/agentfm?utm_source=agentfm&utm_medium=live-rail"
+      target="_blank"
+      rel="noreferrer"
+      className="card flex w-full items-center gap-3 border-agentcall/35 px-3.5 py-2.5 text-left transition-colors hover:border-agentcall/70"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-agentcall/40 bg-agentcall/10 text-base text-agentcall">
+        ☎
+      </span>
+      <span className="min-w-0 flex-1 leading-tight">
+        <span className="block truncate text-sm font-semibold text-cream">
+          Want to be on the show?
+        </span>
+        <span className="block truncate font-mono text-[10px] text-agentcall/85">
+          request a callback — the host dials you live
+        </span>
+      </span>
+      <span className="shrink-0 font-mono text-[10px] tracking-[0.2em] text-agentcall">
+        CALL ME →
+      </span>
+    </a>
   );
 }
 
