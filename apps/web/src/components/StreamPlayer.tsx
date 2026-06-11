@@ -29,15 +29,22 @@ export function StreamPlayer({ nowPlaying }: { nowPlaying: NowPlaying | null }) 
     el.muted = muted;
   }, [volume, muted]);
 
-  // autoplay muted on mount (browser-allowed); reflect playing state
+  // autoplay muted on mount (browser-allowed). If a browser blocks even muted
+  // autoplay, that's NOT an error — the first-interaction handler recovers it.
+  // Retry on canplay so a slow stream connection still starts on its own.
   useEffect(() => {
     const el = audioRef.current;
     if (!el) return;
     el.muted = true;
-    el.play().then(
-      () => setPlaying(true),
-      () => setFailed(true),
-    );
+    const tryPlay = () => el.play().then(() => setPlaying(true), () => {});
+    tryPlay();
+    el.addEventListener("canplay", tryPlay);
+    const onErr = () => setFailed(true);
+    el.addEventListener("error", onErr);
+    return () => {
+      el.removeEventListener("canplay", tryPlay);
+      el.removeEventListener("error", onErr);
+    };
   }, []);
 
   // unmute on the first user interaction anywhere — the station "turns up"
@@ -119,7 +126,7 @@ export function StreamPlayer({ nowPlaying }: { nowPlaying: NowPlaying | null }) 
               playing ? "text-onair" : "text-muted"
             }`}
           >
-            {playing && <span className="blink-slow">●</span>}{" "}
+            {!muted && playing && <span className="blink-slow">●</span>}{" "}
             {isDemo ? "DEMO FEED" : "LIVE"}
           </span>
           {nowPlaying && (
@@ -127,9 +134,9 @@ export function StreamPlayer({ nowPlaying }: { nowPlaying: NowPlaying | null }) 
               {kindLabel[nowPlaying.kind] ?? nowPlaying.kind}
             </span>
           )}
-          {muted && playing && (
+          {muted && (
             <span className="chip border-amber/50 text-amber blink-slow">
-              ♪ TAP TO LISTEN
+              ♪ TAP ANYWHERE TO LISTEN
             </span>
           )}
         </div>
