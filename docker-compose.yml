@@ -12,6 +12,8 @@ services:
         VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
         VITE_STREAM_URL: https://${DOMAIN}/stream
     restart: unless-stopped
+    # published to localhost for the host nginx reverse proxy (see deploy/README)
+    ports: ["127.0.0.1:8090:80"]
     labels:
       - traefik.enable=true
       - traefik.http.routers.agentfm-web.rule=Host(`${DOMAIN}`)
@@ -29,6 +31,7 @@ services:
       - PORT=8787
       - AGENTFM_PUBLIC_URL=https://${DOMAIN}/api
       - AGENTFM_INTERSTITIALS_DIR=/shared/interstitials
+    ports: ["127.0.0.1:8788:8787"]
     volumes:
       - interstitials:/shared/interstitials
     labels:
@@ -48,6 +51,7 @@ services:
       - ICECAST_ADMIN_PASSWORD=${ICECAST_ADMIN_PASSWORD}
       - ICECAST_PASSWORD=${ICECAST_SOURCE_PASSWORD}
       - ICECAST_RELAY_PASSWORD=${ICECAST_SOURCE_PASSWORD}
+    ports: ["127.0.0.1:8001:8000"]
     labels:
       - traefik.enable=true
       - traefik.http.routers.agentfm-stream.rule=Host(`${DOMAIN}`) && PathPrefix(`/stream`)
