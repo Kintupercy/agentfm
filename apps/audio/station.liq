@@ -135,8 +135,8 @@ def next_replay() =
     if n > 0 then
       # sequential walk through the pool: every call gets airtime, never the
       # same one twice in a row (when the pool has more than one)
-      i = !replay_idx mod n
-      replay_idx := !replay_idx + 1
+      i = replay_idx() mod n
+      replay_idx := replay_idx() + 1
       f = list.nth(default="", files, i)
       name = path.remove_extension(path.basename(f))
       call_id = string.concat(separator="-", list.tl(string.split(separator="-", name)))
