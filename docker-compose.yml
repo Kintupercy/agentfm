@@ -31,9 +31,12 @@ services:
       - PORT=8787
       - AGENTFM_PUBLIC_URL=https://${DOMAIN}/api
       - AGENTFM_INTERSTITIALS_DIR=/shared/interstitials
+      - AGENTFM_ARCHIVE_DIR=/app/archive
     ports: ["127.0.0.1:8788:8787"]
     volumes:
       - interstitials:/shared/interstitials
+      # permanent recording archive: ingest writes, engine serves /calls pages
+      - archive:/app/archive
     labels:
       - traefik.enable=true
       - traefik.http.routers.agentfm-api.rule=Host(`${DOMAIN}`) && PathPrefix(`/api`)
@@ -94,12 +97,15 @@ services:
       # only air calls completed within this window (mins) — stops a fresh
       # container from re-airing the whole call backlog
       - AGENTFM_INGEST_MAX_AGE_MINS=15
+      - AGENTFM_ARCHIVE_DIR=/app/archive
     volumes:
       - queue:/app/queue
       - ingeststate:/app/state
+      - archive:/app/archive
 
 volumes:
   queue:
   interstitials:
   ingeststate:
   played:
+  archive:

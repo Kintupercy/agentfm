@@ -22,7 +22,7 @@
  * The Phase 2 station engine calls this for every call.recording webhook.
  */
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,6 +42,9 @@ const title = arg("title", basename(input));
 const callId = arg("call-id", "");
 const queueDir = resolve(arg("queue-dir", join(here, "queue")));
 const stationDir = resolve(arg("station-dir", join(here, "..", "..", "audio", "station")));
+/** when set, a permanent copy lands here as <callId>.mp3 — feeds the
+ * shareable call pages (the queue copy is consumed by the air chain) */
+const archiveDir = arg("archive-dir", "");
 
 const manifest = JSON.parse(
   readFileSync(join(stationDir, "station-audio.json"), "utf8"),
@@ -90,6 +93,13 @@ execFileSync(
   ],
   { stdio: ["ignore", "inherit", "inherit"] },
 );
+
+// archive copy BEFORE the queue rename — once renamed, the air chain may
+// claim and consume the file at any moment
+if (archiveDir && callId) {
+  mkdirSync(archiveDir, { recursive: true });
+  copyFileSync(tmp, join(archiveDir, `${callId}.mp3`));
+}
 
 try {
   renameSync(tmp, out); // atomic within the same filesystem

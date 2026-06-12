@@ -44,6 +44,8 @@ const KEY = process.env.AGENTCALL_API_KEY;
 const STATION = process.env.STATION_NUMBER;
 const POLL_MS = Number(process.env.AGENTFM_INGEST_POLL_MS || 30000);
 const QUEUE_DIR = process.env.AGENTFM_QUEUE_DIR || join(here, "queue");
+// permanent archive feeding the shareable call pages (engine serves it)
+const ARCHIVE_DIR = process.env.AGENTFM_ARCHIVE_DIR || "";
 // state file — keep on a persistent volume in production so redeploys don't
 // re-scan the whole call history and re-air old recordings
 const STATE_DIR = process.env.AGENTFM_INGEST_STATE_DIR || here;
@@ -134,9 +136,27 @@ async function cycle() {
       execFileSync(
         "node",
         [join(here, "preprocess.mjs"), tmp,
-          "--title", title, "--call-id", call.id, "--queue-dir", QUEUE_DIR],
+          "--title", title, "--call-id", call.id, "--queue-dir", QUEUE_DIR,
+          ...(ARCHIVE_DIR ? ["--archive-dir", ARCHIVE_DIR] : [])],
         { stdio: ["ignore", "inherit", "inherit"] },
       );
+      if (ARCHIVE_DIR) {
+        // metadata sidecar for the share page — never expose phone numbers
+        const publicTitle = title
+          .replace(/^REPLAY — /, "")
+          .replace(/\+?\d{7,15}/g, "a caller");
+        writeFileSync(
+          join(ARCHIVE_DIR, `${call.id}.json`),
+          JSON.stringify({
+            callId: call.id,
+            title: publicTitle,
+            agentId: call.metadata?.agentId || undefined,
+            recordedAt: call.createdAt,
+            archivedAt: new Date().toISOString(),
+            airTimes: [],
+          }, null, 1),
+        );
+      }
       state.processed[call.id] = "aired";
       saveState();
       console.log(`ingest: ${call.id} → queue ("${title}")`);

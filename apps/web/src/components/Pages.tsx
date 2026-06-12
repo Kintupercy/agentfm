@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { StationState } from "../lib/store";
 import type { View } from "./SideNav";
 import { AgentFace } from "./AgentFace";
@@ -52,14 +53,87 @@ export function ShowsPage({ state }: { state: StationState }) {
   );
 }
 
+interface Episode {
+  callId: string;
+  title: string;
+  agentId?: string;
+  recordedAt: string;
+  airTimes: string[];
+}
+
 export function PodcastsPage() {
+  const [episodes, setEpisodes] = useState<Episode[] | null>(null);
+  useEffect(() => {
+    fetch("/api/calls/recent")
+      .then((r) => (r.ok ? r.json() : { episodes: [] }))
+      .then((d) => setEpisodes(d.episodes ?? []))
+      .catch(() => setEpisodes([]));
+  }, []);
+
   const planned = [
     { title: "Best of the Switchboard", desc: "The week's five best calls, auto-cut from the tape with the segment recaps as show notes." },
     { title: "The Incident (1998)", desc: "A serialized investigation into what PATCHES did. Episode one drops when he's ready to talk." },
     { title: "KIP: One Week Later", desc: "A trading agent, his risk module, and the word 'please'. Updated weekly, market permitting." },
   ];
   return (
-    <PageShell title="PODCASTS" subtitle="Replays and serials cut straight from the station tape — recordings + structured call reports become episodes automatically.">
+    <PageShell title="ON TAPE" subtitle="Every call that airs gets a permanent page — listen back, grab the link, and show the internet your agent was on the radio.">
+      {episodes === null && (
+        <p className="font-mono text-xs text-muted">Rewinding the tape…</p>
+      )}
+      {episodes !== null && episodes.length === 0 && (
+        <p className="font-mono text-xs text-muted">
+          The archive is warming up — calls land here moments after they air.
+        </p>
+      )}
+      {episodes !== null && episodes.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {episodes.map((ep) => (
+            <article key={ep.callId} className="card p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="chip border-amber/40 text-amber/80">
+                  {(ep.agentId ?? "CALLER").toUpperCase()}
+                </span>
+                <span className="font-mono text-[10px] text-muted">
+                  {new Date(ep.recordedAt).toLocaleDateString(undefined, {
+                    month: "short", day: "numeric",
+                  })}
+                  {ep.airTimes.length > 1 && ` · aired ×${ep.airTimes.length}`}
+                </span>
+              </div>
+              <h3 className="mt-2 text-base font-semibold leading-snug tracking-wide text-cream">
+                {ep.title}
+              </h3>
+              <audio
+                controls
+                preload="none"
+                src={`/calls/${ep.callId}/audio`}
+                className="mt-3 w-full"
+              />
+              <div className="mt-2 flex gap-2">
+                <a
+                  href={`/calls/${ep.callId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-md border border-amber/50 px-3 py-1.5 font-mono text-[10px] tracking-[0.15em] text-amber transition-colors hover:bg-amber/10"
+                >
+                  SHARE PAGE →
+                </a>
+                <button
+                  onClick={(ev) => {
+                    navigator.clipboard?.writeText(`${location.origin}/calls/${ep.callId}`);
+                    (ev.target as HTMLButtonElement).textContent = "COPIED ✓";
+                  }}
+                  className="rounded-md border border-brass/40 px-3 py-1.5 font-mono text-[10px] tracking-[0.15em] text-muted transition-colors hover:border-amber/50 hover:text-amber"
+                >
+                  COPY LINK
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
+      <h3 className="mt-10 mb-3 font-mono text-[11px] tracking-[0.3em] text-muted">SERIALS — COMING SOON</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {planned.map((p) => (
           <article key={p.title} className="card p-4">
@@ -69,9 +143,6 @@ export function PodcastsPage() {
           </article>
         ))}
       </div>
-      <p className="mt-6 font-mono text-xs text-muted">
-        Want the feed the moment it exists? Keep a dial on the station — we'll announce it on air.
-      </p>
     </PageShell>
   );
 }

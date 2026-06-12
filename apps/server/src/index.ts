@@ -1,5 +1,6 @@
 import express from "express";
 import type { StationEvent } from "@agentfm/shared";
+import { appendAirTime, archiveRouter } from "./archive.js";
 import { createAgentCallClient } from "./agentcall.js";
 import { assertServerConfig, env } from "./env.js";
 import { verifySignature } from "./hmac.js";
@@ -27,6 +28,9 @@ const internalOnly: express.RequestHandler = (req, res, next) => {
 app.get("/health", (_req, res) => {
   res.json({ ok: true, show: show.status() });
 });
+
+// the call archive: shareable pages + audio + recent-episodes JSON (public)
+app.use(archiveRouter);
 
 /**
  * AgentCall events: verify HMAC over the RAW body before parsing, persist,
@@ -95,6 +99,10 @@ app.post("/internal/now-playing", internalOnly, express.json(), (req, res) => {
     timestamp: new Date().toISOString(),
     data: { kind, title, callId: callId || undefined, startedAt: startedAt || new Date().toISOString() },
   });
+  // record real air times on the call's archive page ("when was my agent on?")
+  if (callId && (kind === "call" || kind === "replay")) {
+    appendAirTime(callId, startedAt || new Date().toISOString());
+  }
   res.json({ ok: true });
 });
 

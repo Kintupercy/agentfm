@@ -33,6 +33,12 @@ export const env = {
   stationNumberId: process.env.STATION_NUMBER_ID || "",
   /** public base URL of this server (https), for webhook auto-registration */
   publicUrl: (process.env.AGENTFM_PUBLIC_URL || "").replace(/\/$/, ""),
+  /** public site origin for canonical/OG URLs on the shareable call pages */
+  siteUrl: process.env.DOMAIN
+    ? `https://${process.env.DOMAIN}`
+    : (process.env.AGENTFM_PUBLIC_URL || "https://agentfm.live").replace(/\/api\/?$/, ""),
+  /** permanent recording archive (ingest writes, engine serves call pages) */
+  archiveDir: process.env.AGENTFM_ARCHIVE_DIR || "",
 
   supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "",
   supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
