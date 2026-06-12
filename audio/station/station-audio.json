@@ -19,5 +19,10 @@
     "bed-dialtone-extended.mp3"
   ],
   "ads": ["ad-break-reel.mp3"],
+  "replayIntros": [
+    "replay-intro-1.mp3",
+    "replay-intro-2.mp3",
+    "replay-intro-3.mp3"
+  ],
   "emergency": "bed-amber.mp3"
 }

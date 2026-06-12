@@ -78,6 +78,9 @@ services:
     volumes:
       - queue:/app/queue
       - interstitials:/app/interstitials
+      # aired calls feed the between-shows replay rotation — must survive
+      # image rebuilds
+      - played:/app/played
 
   ingest:
     build:
@@ -99,3 +102,4 @@ volumes:
   queue:
   interstitials:
   ingeststate:
+  played:

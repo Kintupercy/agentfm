@@ -49,6 +49,7 @@ let json.parse (manifest :
     stingers: { news: string, callin: string },
     beds: [string],
     ads: [string],
+    replayIntros: [string],
     emergency: string }) = file.contents("#{station_dir}/station-audio.json")
 
 def full(f) = path.concat(station_dir, f) end
@@ -57,6 +58,7 @@ station_ids = playlist.list(mode="randomize", list.map(full, manifest.ids))
 bumpers     = playlist.list(mode="randomize", list.map(full, manifest.bumpers))
 beds        = playlist.list(mode="randomize", list.map(full, manifest.beds))
 ads         = playlist.list(mode="randomize", list.map(full, manifest.ads))
+replay_intros = playlist.list(mode="randomize", list.map(full, manifest.replayIntros))
 emergency   = single(full(manifest.emergency))
 
 # RAY VOX's DJ voice library (audio/station/dj/*.mp3, cedar TTS) — the spoken
@@ -77,6 +79,9 @@ ignore(manifest.stingers)
 def next_call() =
   files = file.ls(absolute=true, sorted=true, queue_dir)
   files = list.filter(fun (f) -> not (file.is_directory(f)), files)
+  # preprocess.mjs writes "<name>.tmp" then renames — claiming the .tmp airs a
+  # partial file AND crashes the writer's rename (happened on air 2026-06-11)
+  files = list.filter(fun (f) -> not (string.contains(substring=".tmp", path.basename(f))), files)
   if list.length(files) > 0 then
     f = list.hd(default="", files)
     dest = path.concat(played_dir, path.basename(f))
@@ -95,6 +100,58 @@ def next_call() =
 end
 
 calls = request.dynamic(id="calls_queue", retry_delay=5., next_call)
+
+# ── replays: aired calls re-enter the rotation between shows ─────────────────
+# The station must sound like a talk station 24/7, but live shows run a few
+# hours a day. Aired recordings stay in played_dir (a persistent volume) and
+# rotate back on air — clearly bumpered as replays — until they age out.
+# Live calls always outrank replays (program sits above the off-air rotation
+# in the content fallback), so this never delays fresh material.
+replay_max_age = float_of_string(
+  default=172800.,
+  environment.get(default="172800", "AGENTFM_REPLAY_MAX_AGE_SECS"))
+replay_idx = ref(0)
+
+def next_replay() =
+  try
+    files = file.ls(absolute=true, sorted=true, played_dir)
+    files = list.filter(fun (f) -> not (file.is_directory(f)), files)
+    files = list.filter(fun (f) -> not (string.contains(substring=".tmp", path.basename(f))), files)
+    # filenames are "<epoch_ms>-<callId>.ext" (preprocess.mjs) — age out and
+    # delete anything past the replay window so the pool stays fresh
+    now = time()
+    def fresh(f) =
+      ts_str = list.hd(default="0", string.split(separator="-", path.basename(f)))
+      ts = float_of_string(default=0., ts_str) / 1000.
+      if ts > 0. and now - ts > replay_max_age then
+        try file.remove(f) catch _ do () end
+        false
+      else
+        ts > 0.
+      end
+    end
+    files = list.filter(fresh, files)
+    n = list.length(files)
+    if n > 0 then
+      # sequential walk through the pool: every call gets airtime, never the
+      # same one twice in a row (when the pool has more than one)
+      i = !replay_idx mod n
+      replay_idx := !replay_idx + 1
+      f = list.nth(default="", files, i)
+      name = path.remove_extension(path.basename(f))
+      call_id = string.concat(separator="-", list.tl(string.split(separator="-", name)))
+      request.create("annotate:agentfm_kind=\"replay\",agentfm_call_id=\"#{call_id}\":#{f}")
+    else
+      null()
+    end
+  catch _ do
+    null()
+  end
+end
+
+replays = request.dynamic(id="replays", retry_delay=60., next_replay)
+# honest radio: every replay opens with Ray saying it's a replay
+replays = prepend(replays, fun (_) -> once(replay_intros))
 
 # ── spoken host interstitials (TTS, cedar) — optional second watched dir ────
 # The station engine drops one-liner mp3s here between calls; each airs once.
@@ -135,11 +192,16 @@ program = prepend(calls, fun (_) -> once(bumpers))
 ids_hourly = delay(3500., station_ids)
 
 # ── the chain — a DJ-run show, not a jukebox ────────────────────────────────
+# off-air rotation: roughly one replayed call per two music/ad tracks, so the
+# station keeps talking between live shows (rotate skips replays when the
+# played pool is empty — filler carries the hour)
+offair = rotate(weights=[1, 2], [replays, filler])
+
 # CONTENT: the songs and calls, in priority order.
 content = fallback(track_sensitive=true, [
   switch([({ 0m-2m }, ids_hourly)]),
   program,
-  filler,
+  offair,
   emergency
 ])
 
@@ -167,6 +229,7 @@ def on_track(m) =
   fname = path.basename(m["filename"])
   kind =
     if m["agentfm_kind"] == "call" then "call"
+    elsif m["agentfm_kind"] == "replay" then "replay"
     elsif m["agentfm_kind"] == "interstitial" then "interstitial"
     elsif string.contains(substring="/dj/", m["filename"]) then "interstitial"
     elsif string.contains(substring="station-id", fname) then "station_id"

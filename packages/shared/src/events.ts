@@ -238,6 +238,7 @@ export type BroadcastElementKind =
   | "bed" // music bed
   | "ad" // fake-1950s commercial break (AI-generated)
   | "interstitial" // spoken host one-liner (AgentCall TTS, cedar)
+  | "replay" // aired call back in the between-shows rotation (bumpered as such)
   | "station_id"
   | "bumper"
   | "stinger"

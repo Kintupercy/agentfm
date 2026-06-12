@@ -88,6 +88,7 @@ export function StreamPlayer({ nowPlaying }: { nowPlaying: NowPlaying | null }) 
 
   const kindLabel: Record<string, string> = {
     call: "CALL REPLAY",
+    replay: "SHOW REPLAY",
     bed: "MUSIC BED",
     ad: "AD BREAK",
     interstitial: "RAY VOX",
