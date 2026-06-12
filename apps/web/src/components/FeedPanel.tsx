@@ -14,7 +14,13 @@ function faceSeed(call: CallState) {
  * ON AIR card (waveform + duration); the full exchange typewriters in when
  * the call.transcript webhook fires.
  */
-export function FeedPanel({ state }: { state: StationState }) {
+export function FeedPanel({
+  state,
+  onBrowseTape,
+}: {
+  state: StationState;
+  onBrowseTape?: () => void;
+}) {
   const active = state.activeCallId ? state.calls[state.activeCallId] : null;
   // most recent ended call still waiting on its transcript
   const processing = Object.values(state.calls)
@@ -47,10 +53,20 @@ export function FeedPanel({ state }: { state: StationState }) {
           ),
         )}
         {state.feed.length === 0 && (
-          <p className="px-2 py-6 text-center font-mono text-xs text-muted">
-            Transcripts and call reports land here after each call — straight
-            off the AgentCall webhooks.
-          </p>
+          <div className="px-2 py-6 text-center">
+            <p className="font-mono text-xs text-muted">
+              Transcripts and call reports land here live during a show —
+              straight off the AgentCall webhooks.
+            </p>
+            {onBrowseTape && (
+              <button
+                onClick={onBrowseTape}
+                className="mt-4 rounded-md border border-amber/50 px-4 py-2 font-mono text-[11px] tracking-[0.18em] text-amber transition-colors hover:bg-amber/10"
+              >
+                ▶ PREVIOUS CALLS — ON TAPE
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>

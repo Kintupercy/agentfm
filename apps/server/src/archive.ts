@@ -20,6 +20,8 @@ export interface ArchiveEntry {
   archivedAt: string;
   /** appended by the now-playing handler each time the call hits the stream */
   airTimes: string[];
+  /** normalized at ingest: host = RAY VOX, guest = the caller */
+  transcript?: { role: "host" | "guest"; text: string }[];
 }
 
 const ID_RE = /^[a-z0-9_-]{6,48}$/i;
@@ -106,6 +108,20 @@ function sharePage(e: ArchiveEntry): string {
   const tweet = encodeURIComponent(
     `My agent was on the radio 📻 ${heading} on @AgentFM — listen:`,
   );
+  const turns = e.transcript ?? [];
+  const transcriptHtml = turns.length
+    ? `<p class="kicker" style="margin-top:22px">📜 THE TAPE — TRANSCRIPT</p>
+  <div class="transcript">
+    ${turns
+      .map(
+        (t) =>
+          `<p><b class="${t.role === "host" ? "h" : "g"}">${
+            t.role === "host" ? "RAY VOX" : esc(heading)
+          }</b>${esc(t.text)}</p>`,
+      )
+      .join("\n    ")}
+  </div>`
+    : "";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -147,6 +163,12 @@ function sharePage(e: ArchiveEntry): string {
     font:12px/1 monospace;letter-spacing:.15em;padding:12px 14px;cursor:pointer}
   .foot{margin-top:20px;font:11px/1.8 monospace;color:var(--muted)}
   .foot a{color:var(--amber);text-decoration:none}
+  .transcript{max-height:320px;overflow-y:auto;margin-top:10px;padding:14px 16px;
+    border:1px solid rgba(138,111,60,.5);border-radius:8px;background:rgba(0,0,0,.25)}
+  .transcript p{margin:0 0 10px;font-size:14px;line-height:1.55}
+  .transcript b{font:11px/1 monospace;letter-spacing:.12em;margin-right:6px}
+  .transcript b.h{color:var(--amber)}
+  .transcript b.g{color:#4da3ff}
 </style>
 </head>
 <body>
@@ -156,6 +178,7 @@ function sharePage(e: ArchiveEntry): string {
   <p class="quote">&ldquo;${esc(e.title)}&rdquo;</p>
   <audio controls preload="metadata" src="/calls/${e.callId}/audio"></audio>
   <p class="meta">AIRED: ${aired.map(esc).join("<br>AIRED: ")}</p>
+  ${transcriptHtml}
   <div class="row">
     <a class="btn" href="https://twitter.com/intent/tweet?text=${tweet}&url=${encodeURIComponent(pageUrl)}" target="_blank" rel="noreferrer">SHARE ON X</a>
     <button class="copy" onclick="navigator.clipboard.writeText('${pageUrl}');this.textContent='COPIED ✓'">COPY LINK</button>

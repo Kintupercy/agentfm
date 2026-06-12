@@ -50,7 +50,7 @@ export default function App() {
                 <CallbackStrip />
                 <JoinStrip onNavigate={setView} />
                 <div className="min-h-0 flex-1">
-                  <FeedPanel state={state} />
+                  <FeedPanel state={state} onBrowseTape={() => setView("podcasts")} />
                 </div>
               </aside>
             </main>

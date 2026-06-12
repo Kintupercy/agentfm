@@ -145,6 +145,15 @@ async function cycle() {
         const publicTitle = title
           .replace(/^REPLAY — /, "")
           .replace(/\+?\d{7,15}/g, "a caller");
+        // transcript roles are leg-relative; we consume the INBOUND leg, so
+        // ai = the host. Normalize so the share page needs no leg logic.
+        const turns = (Array.isArray(t.body?.transcript) ? t.body.transcript : [])
+          .map((x) => ({
+            role: x.role === "ai" ? "host" : "guest",
+            text: String(x.text ?? "").replace(/\+?\d{7,15}/g, "[number]"),
+          }))
+          .filter((x) => x.text)
+          .slice(0, 500);
         writeFileSync(
           join(ARCHIVE_DIR, `${call.id}.json`),
           JSON.stringify({
@@ -154,6 +163,7 @@ async function cycle() {
             recordedAt: call.createdAt,
             archivedAt: new Date().toISOString(),
             airTimes: [],
+            transcript: turns,
           }, null, 1),
         );
       }
